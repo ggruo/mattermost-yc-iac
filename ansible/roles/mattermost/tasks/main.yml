@@ -1,0 +1,120 @@
+---
+- name: Validate required Mattermost variables
+  ansible.builtin.assert:
+    that:
+      - mattermost_fqdn | length > 0
+      - postgres_host | length > 0
+      - postgres_db | length > 0
+      - postgres_user | length > 0
+      - postgres_password is defined
+      - postgres_password | length > 0
+    fail_msg: "Mattermost and PostgreSQL variables must be set before running the playbook."
+
+- name: Remove obsolete Mattermost apt key if present
+  ansible.builtin.file:
+    path: /etc/apt/trusted.gpg.d/mattermost.gpg
+    state: absent
+
+- name: Check Mattermost apt source
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/mattermost.list
+  register: mattermost_apt_source
+
+- name: Add Mattermost PPA repository using official setup script
+  ansible.builtin.shell:
+    cmd: "curl -fsSL {{ mattermost_repo_setup_url }} | bash -s mattermost"
+  args:
+    executable: /bin/bash
+  when: not mattermost_apt_source.stat.exists
+
+- name: Install Mattermost package
+  ansible.builtin.apt:
+    name: "{{ mattermost_package_name }}{{ '=' + mattermost_version if mattermost_version | length > 0 else '' }}"
+    state: present
+    update_cache: true
+  notify: Restart mattermost
+
+- name: Ensure Mattermost config exists from packaged defaults
+  ansible.builtin.command:
+    cmd: "install -C -m 0600 -o mattermost -g mattermost {{ mattermost_default_config_path }} {{ mattermost_config_path }}"
+    creates: "{{ mattermost_config_path }}"
+
+- name: Ensure Mattermost data directory permissions
+  ansible.builtin.file:
+    path: "{{ mattermost_install_dir }}/data"
+    state: directory
+    owner: mattermost
+    group: mattermost
+    mode: "0750"
+
+- name: Build Mattermost PostgreSQL data source
+  ansible.builtin.set_fact:
+    mattermost_sql_datasource: "postgres://{{ postgres_user | urlencode }}:{{ postgres_password | urlencode }}@{{ postgres_host }}:{{ postgres_port }}/{{ postgres_db }}?sslmode={{ postgres_sslmode }}&connect_timeout=10"
+  no_log: true
+
+- name: Configure Mattermost SQL driver
+  ansible.builtin.replace:
+    path: "{{ mattermost_config_path }}"
+    regexp: '"DriverName":\\s*"[^"]*"'
+    replace: '"DriverName": "postgres"'
+    owner: mattermost
+    group: mattermost
+    mode: "0600"
+  notify: Restart mattermost
+
+- name: Configure Mattermost SQL data source
+  ansible.builtin.replace:
+    path: "{{ mattermost_config_path }}"
+    regexp: '"DataSource":\\s*"[^"]*"'
+    replace: '"DataSource": "{{ mattermost_sql_datasource }}"'
+    owner: mattermost
+    group: mattermost
+    mode: "0600"
+  no_log: true
+  notify: Restart mattermost
+
+- name: Configure Mattermost site URL
+  ansible.builtin.replace:
+    path: "{{ mattermost_config_path }}"
+    regexp: '"SiteURL":\\s*"[^"]*"'
+    replace: '"SiteURL": "{{ mattermost_site_url }}"'
+    owner: mattermost
+    group: mattermost
+    mode: "0600"
+  notify: Restart mattermost
+
+- name: Configure Mattermost listen address
+  ansible.builtin.replace:
+    path: "{{ mattermost_config_path }}"
+    regexp: '"ListenAddress":\\s*"[^"]*"'
+    replace: '"ListenAddress": "{{ mattermost_listen_address }}"'
+    owner: mattermost
+    group: mattermost
+    mode: "0600"
+  notify: Restart mattermost
+
+- name: Configure Mattermost support email
+  ansible.builtin.replace:
+    path: "{{ mattermost_config_path }}"
+    regexp: '"SupportEmail":\\s*"[^"]*"'
+    replace: '"SupportEmail": "{{ mattermost_support_email }}"'
+    owner: mattermost
+    group: mattermost
+    mode: "0600"
+  notify: Restart mattermost
+
+- name: Enable and start Mattermost service
+  ansible.builtin.systemd:
+    name: mattermost
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Check Mattermost local HTTP endpoint
+  ansible.builtin.uri:
+    url: "http://{{ mattermost_listen_address }}"
+    status_code: [200, 302]
+  register: mattermost_health
+  retries: 12
+  delay: 5
+  until: mattermost_health.status in [200, 302]

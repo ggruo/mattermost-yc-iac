@@ -1,0 +1,14 @@
+project_name = "mattermost"
+environment  = "prod"
+zone         = "ru-central1-a"
+zones        = ["ru-central1-a", "ru-central1-b"]
+
+subnet_cidrs       = ["10.10.10.0/24", "10.10.20.0/24"]
+trusted_ssh_cidrs  = ["203.0.113.10/32"]
+ssh_username       = "ubuntu"
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+
+domain_name     = "example.com"
+mattermost_fqdn = "mattermost.example.com"
+
+postgres_password = "replace-with-a-secure-password-outside-git"

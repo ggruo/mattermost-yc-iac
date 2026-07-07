@@ -1,0 +1,8 @@
+---
+- name: Configure Mattermost application host
+  hosts: mattermost
+  become: true
+  roles:
+    - common
+    - mattermost
+    - nginx

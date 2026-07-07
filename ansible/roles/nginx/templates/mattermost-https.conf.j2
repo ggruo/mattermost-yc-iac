@@ -1,0 +1,31 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ mattermost_fqdn }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ mattermost_fqdn }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ mattermost_fqdn }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ mattermost_fqdn }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size {{ nginx_client_max_body_size }};
+
+    location / {
+        proxy_pass http://{{ mattermost_listen_address }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 90;
+    }
+}

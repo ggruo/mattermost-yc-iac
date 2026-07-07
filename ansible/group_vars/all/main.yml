@@ -1,0 +1,19 @@
+---
+mattermost_fqdn: "mattermost.example.com"
+mattermost_site_url: "https://{{ mattermost_fqdn }}"
+mattermost_version: ""
+mattermost_support_email: "admin@example.com"
+mattermost_install_dir: "/opt/mattermost"
+mattermost_listen_address: "127.0.0.1:8065"
+mattermost_backup_dir: "/var/backups/mattermost"
+
+postgres_host: ""
+postgres_port: 6432
+postgres_db: "mattermost"
+postgres_user: "mattermost"
+postgres_sslmode: "disable"
+
+letsencrypt_email: "admin@example.com"
+nginx_client_max_body_size: "100M"
+
+common_timezone: "UTC"

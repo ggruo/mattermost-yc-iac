@@ -1,0 +1,60 @@
+---
+- name: Install Nginx and Certbot
+  ansible.builtin.apt:
+    name: "{{ nginx_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install HTTP-only Nginx config for ACME bootstrap
+  ansible.builtin.template:
+    src: mattermost-http.conf.j2
+    dest: "{{ nginx_site_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable Mattermost Nginx site
+  ansible.builtin.file:
+    src: "{{ nginx_site_path }}"
+    dest: "{{ nginx_site_link }}"
+    state: link
+  notify: Reload nginx
+
+- name: Disable default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Ensure Nginx is running for HTTP challenge
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Obtain or renew Let's Encrypt certificate
+  ansible.builtin.command:
+    cmd: "certbot --nginx --non-interactive --agree-tos --email {{ letsencrypt_email }} -d {{ mattermost_fqdn }} --redirect"
+    creates: "/etc/letsencrypt/live/{{ mattermost_fqdn }}/fullchain.pem"
+
+- name: Install final HTTPS Nginx config
+  ansible.builtin.template:
+    src: mattermost-https.conf.j2
+    dest: "{{ nginx_site_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Validate Nginx configuration
+  ansible.builtin.command:
+    cmd: nginx -t
+  changed_when: false
+
+- name: Ensure Nginx is enabled and started
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

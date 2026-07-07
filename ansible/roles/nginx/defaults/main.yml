@@ -1,0 +1,7 @@
+---
+nginx_site_path: "/etc/nginx/sites-available/mattermost.conf"
+nginx_site_link: "/etc/nginx/sites-enabled/mattermost.conf"
+nginx_packages:
+  - nginx
+  - certbot
+  - python3-certbot-nginx

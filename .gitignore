@@ -1,0 +1,15 @@
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+
+ansible/inventory/generated.yml
+ansible/group_vars/all/vault.yml
+*.retry
+
+*.pem
+*.key
+id_*
+*.log
+tmp/
