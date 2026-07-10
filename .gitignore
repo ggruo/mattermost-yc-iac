@@ -5,6 +5,8 @@ terraform.tfstate.*
 !terraform.tfvars.example
 
 ansible/inventory/generated.yml
+ansible/inventory/terraform-output.json
+ansible/inventory/group_vars/all/*.yml
 ansible/group_vars/all/vault.yml
 *.retry
 
@@ -12,4 +14,7 @@ ansible/group_vars/all/vault.yml
 *.key
 id_*
 *.log
+__pycache__/
+*.py[cod]
 tmp/
+.yc/

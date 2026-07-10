@@ -1,6 +1,6 @@
 locals {
   name_prefix    = "${var.project_name}-${var.environment}"
-  ssh_public_key = trimspace(file(var.ssh_public_key_path))
+  ssh_public_key = trimspace(file(pathexpand(var.ssh_public_key_path)))
 }
 
 module "network" {
@@ -59,6 +59,8 @@ module "compute" {
 }
 
 resource "yandex_dns_recordset" "mattermost" {
+  count = var.manage_dns_record ? 1 : 0
+
   zone_id = module.network.dns_zone_id
   name    = "${var.mattermost_fqdn}."
   type    = "A"

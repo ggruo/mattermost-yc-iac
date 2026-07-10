@@ -10,6 +10,12 @@ variable "environment" {
   default     = "prod"
 }
 
+variable "manage_dns_record" {
+  description = "Whether Terraform manages the Mattermost record in Yandex Cloud DNS."
+  type        = bool
+  default     = true
+}
+
 variable "zone" {
   description = "Default Yandex Cloud availability zone."
   type        = string

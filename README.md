@@ -32,6 +32,7 @@ The stack uses Terraform for cloud resources and Ansible for host configuration.
    export YC_TOKEN="$(yc iam create-token --impersonate-service-account-id <service-account-id>)"
    export YC_CLOUD_ID="$(yc config get cloud-id)"
    export YC_FOLDER_ID="$(yc config get folder-id)"
+   export YC_SERVICE_ACCOUNT_KEY_FILE="$HOME/src/mattermost-yc-iac/.yc/key.json"
    ```
 
 2. Create local Terraform variables outside Git:
@@ -77,6 +78,15 @@ The stack uses Terraform for cloud resources and Ansible for host configuration.
    cd ansible
    ansible-playbook playbooks/site.yml --ask-vault-pass
    ```
+  or use
+   ```bash
+   ansible-playbook \
+     -i inventory/generated.yml \
+     playbooks/site.yml \
+     --private-key ~/.ssh/key_name \
+     --ask-vault-pass
+   ```
+
 
 ## Documentation
 
