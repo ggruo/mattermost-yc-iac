@@ -1,0 +1,87 @@
+---
+- name: Create unprivileged application user
+  ansible.builtin.user:
+    name: notes
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: notes
+    mode: '0750'
+  loop: [/opt/notes, /opt/notes/notes, /etc/notes]
+
+- name: Copy application source
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../app/notes/{{ item }}"
+    dest: /opt/notes/notes/
+    owner: root
+    group: notes
+    mode: '0640'
+  loop: [__init__.py, db.py, main.py]
+  notify: Restart notes
+
+- name: Copy pinned dependencies
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../app/requirements.txt"
+    dest: /opt/notes/requirements.txt
+    mode: '0644'
+  notify: Restart notes
+
+- name: Install application dependencies
+  ansible.builtin.pip:
+    requirements: /opt/notes/requirements.txt
+    virtualenv: /opt/notes/venv
+    virtualenv_command: python3 -m venv
+  notify: Restart notes
+
+- name: Download Yandex PostgreSQL CA certificate
+  ansible.builtin.get_url:
+    url: https://storage.yandexcloud.net/cloud-certs/CA.pem
+    dest: /etc/notes/ca.pem
+    mode: '0644'
+  notify: Restart notes
+
+- name: Write database environment
+  ansible.builtin.template:
+    src: database.env.j2
+    dest: /etc/notes/database.env
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  notify: Restart notes
+
+- name: Initialize schema with a separate idempotent command
+  ansible.builtin.command:
+    cmd: /opt/notes/venv/bin/python -m notes.db
+    chdir: /opt/notes
+  environment:
+    PGHOST: "{{ postgres_host }}"
+    PGPORT: '6432'
+    PGDATABASE: "{{ postgres_db }}"
+    PGUSER: "{{ postgres_user }}"
+    PGPASSWORD: "{{ postgres_password }}"
+    PGSSLMODE: verify-full
+    PGSSLROOTCERT: /etc/notes/ca.pem
+  register: schema_init
+  changed_when: "'Schema created' in schema_init.stdout"
+  no_log: true
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: notes.service.j2
+    dest: /etc/systemd/system/notes.service
+    mode: '0644'
+  notify: Restart notes
+
+- name: Enable application
+  ansible.builtin.systemd:
+    name: notes
+    daemon_reload: true
+    enabled: true
+    state: started

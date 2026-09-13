@@ -1,38 +1,54 @@
-# Architecture
+# Архитектура и границы ответственности
 
-## Components
+```mermaid
+flowchart LR
+    U[Интернет] -->|443| N[Nginx на VM]
+    N -->|127.0.0.1:8000| A[systemd / Cloud Notes]
+    A -->|TLS 6432| P[Приватный Managed PostgreSQL]
+```
 
-The deployment has one public application VM and a private managed database.
+```mermaid
+flowchart LR
+    U[Интернет] -->|443| L[ALB / TLS]
+    L -->|30080| W[Приватный worker / Service]
+    W -->|8000| A[Pod Cloud Notes]
+    A -->|TLS 6432| P[Приватный Managed PostgreSQL]
+    W -->|исходящие подключения| G[NAT gateway]
+    G --> R[Registry и интернет]
+```
 
-- VPC and per-zone subnets isolate the project resources in Yandex Cloud.
-- The Mattermost VM receives a static public IP for DNS stability.
-- Nginx accepts public HTTP/HTTPS traffic and proxies to Mattermost on `127.0.0.1:8065`.
-- Mattermost is installed directly on Ubuntu from the official signed package repository and runs through `mattermost.service`.
-- Managed PostgreSQL is private-only, protected by security groups, automatic backups, and deletion protection.
-- Cloud DNS publishes the Mattermost FQDN as an `A` record.
-- Let's Encrypt certificates are issued by Certbot using the Nginx plugin.
+NLB — отдельный промежуточный опыт: TCP 80 → NodePort 30081 → Pod 8000.
+Это не дополнительный слой перед ALB. Service типа LoadBalancer **запрашивает**
+создание NLB у cloud controller; он не является отдельным сетевым hop после NLB.
+Gateway/HTTPRoute — желаемая конфигурация для Gwin, не отдельные прокси.
+Gwin согласует её с ресурсами ALB.
 
-## Network Rules
+VM использует subnet 10.10.10.0/24; Kubernetes — 10.20.10.0/24,
+Pods 10.96.0.0/16, Services 10.112.0.0/16. Subnet принадлежит зоне,
+VPC объединяет subnet. VPC сама по себе здесь не имеет единственного /16 CIDR.
+Диапазоны не должны пересекаться с локальной сетью/VPN.
 
-- Internet to VM: TCP 80 and 443.
-- Trusted administrator CIDRs to VM: TCP 22.
-- VM security group to PostgreSQL security group: TCP 6432 and 5432.
-- VM outbound: open, because package installation and Let's Encrypt require internet access.
-- PostgreSQL has no public IP.
+| Владелец | Ресурсы |
+|---|---|
+| UI/оператор | Folder, bootstrap IAM, DNS zone/delegation, registry, сертификат |
+| OpenTofu VM | VPC, subnet, SG, IP, VM, PostgreSQL, A-запись VM |
+| OpenTofu K8s | VPC/NAT/subnet/SG, service accounts/roles, master/worker, PostgreSQL |
+| Ansible | Пользователь Linux, приложение, venv, systemd, Nginx, Certbot |
+| kubectl | Namespace, ConfigMap, Secret, CA, schema Job, внешние Service, Gateway |
+| Helm | Только Deployment и ClusterIP Service приложения после занятия 9 |
+| Cloud controller / Gwin | NLB / ALB и их дочерние ресурсы |
 
-## Terraform Modules
+В учебном варианте одна зона, один worker и один PostgreSQL host. Это не HA:
+рестарт worker прерывает обслуживание. Production потребует нескольких зон,
+реплик, резервирования БД, контроля доступа к API приложения и защищённого state.
+Не увеличивайте стенд до production ради первого знакомства.
 
-- `network`: creates `yandex_vpc_network`, `yandex_vpc_subnet`, and optionally `yandex_dns_zone`.
-- `security`: creates minimal `yandex_vpc_security_group` resources for the VM and PostgreSQL.
-- `compute`: creates `yandex_vpc_address` and `yandex_compute_instance`; cloud-init injects SSH access and Python prerequisites.
-- `postgresql`: creates `yandex_mdb_postgresql_cluster`, `yandex_mdb_postgresql_user`, and `yandex_mdb_postgresql_database`.
+## API
 
-## Ansible Roles
-
-- `common`: installs base packages and configures timezone.
-- `mattermost`: adds the Mattermost package repository, installs Mattermost, configures PostgreSQL, SiteURL, listen address, support email, and systemd service.
-- `nginx`: installs Nginx and Certbot, obtains Let's Encrypt certificate, and configures HTTPS reverse proxy.
-
-## Deliberate Exclusions
-
-This v1 does not include Docker, Kubernetes, Application Load Balancer, multiple Mattermost nodes, Redis, Elasticsearch/OpenSearch, or S3-compatible file storage. Those are scaling additions, not required for the requested baseline.
+`GET /healthz` — 200 при живом процессе, даже если БД недоступна.
+`GET /readyz` — 200 после доступности таблицы, иначе 503.
+`POST /notes` принимает `{"text":"1–1000 символов"}`, возвращает 201 и `{id,text}`.
+`GET /notes` возвращает последние 100 записей, новые первыми.
+SQL параметризован, соединение открывается на запрос и закрывается после него.
+Это намеренно простой пример без пула, авторизации и миграционного фреймворка.
+Схема создаётся отдельно командой `python -m notes.db`, а не при запуске каждого Pod.

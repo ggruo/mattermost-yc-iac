@@ -1,0 +1,5 @@
+folder_id = "REPLACE_FOLDER_ID"
+trusted_cidrs = ["203.0.113.10/32"]
+kubernetes_version = "REPLACE_SUPPORTED_VERSION"
+enable_nlb = false
+# Password: TF_VAR_postgres_password

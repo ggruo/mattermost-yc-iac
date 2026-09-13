@@ -1,12 +1,7 @@
 ---
-- name: Install common packages
+- name: Install host dependencies
   ansible.builtin.apt:
-    name: "{{ common_packages }}"
+    name: [python3-venv, python3-pip, ca-certificates, curl, postgresql-client]
     state: present
     update_cache: true
     cache_valid_time: 3600
-
-- name: Configure timezone with timedatectl
-  ansible.builtin.command:
-    cmd: "timedatectl set-timezone {{ common_timezone }}"
-  changed_when: false

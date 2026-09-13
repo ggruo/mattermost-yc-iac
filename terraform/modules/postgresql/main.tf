@@ -1,46 +1,42 @@
-resource "yandex_mdb_postgresql_cluster" "this" {
-  name                = "${var.name_prefix}-postgres"
-  environment         = "PRODUCTION"
+# One private host: economical learning environment, not production HA.
+resource "yandex_mdb_postgresql_cluster" "db" {
+  name                = "${var.name}-db"
+  environment         = "PRESTABLE"
   network_id          = var.network_id
-  security_group_ids  = var.security_group_ids
-  deletion_protection = true
-
+  security_group_ids  = [var.security_group_id]
+  deletion_protection = false
   config {
-    version = var.postgres_version
-
+    version = "17"
     resources {
-      resource_preset_id = var.resource_preset_id
-      disk_type_id       = var.disk_type_id
-      disk_size          = var.disk_size
+      resource_preset_id = var.preset
+      disk_type_id       = "network-ssd"
+      disk_size          = 20
     }
-
+    backup_retain_period_days = 7
     backup_window_start {
       hours   = 2
       minutes = 0
     }
-
-    backup_retain_period_days = var.backup_retain_period_days
   }
-
-  dynamic "host" {
-    for_each = toset(var.zones)
-
-    content {
-      zone      = host.value
-      subnet_id = var.subnet_ids[index(var.zones, host.value)]
-    }
+  host {
+    zone             = var.zone
+    subnet_id        = var.subnet_id
+    assign_public_ip = false
   }
 }
-
-resource "yandex_mdb_postgresql_user" "mattermost" {
-  cluster_id = yandex_mdb_postgresql_cluster.this.id
-  name       = var.db_user
-  password   = var.db_password
-  conn_limit = 50
+resource "yandex_mdb_postgresql_user" "app" {
+  cluster_id = yandex_mdb_postgresql_cluster.db.id
+  name       = "notes"
+  password   = var.password
 }
-
-resource "yandex_mdb_postgresql_database" "mattermost" {
-  cluster_id = yandex_mdb_postgresql_cluster.this.id
-  name       = var.db_name
-  owner      = yandex_mdb_postgresql_user.mattermost.name
+resource "yandex_mdb_postgresql_database" "app" {
+  cluster_id = yandex_mdb_postgresql_cluster.db.id
+  name       = "notes"
+  owner      = yandex_mdb_postgresql_user.app.name
+}
+output "host" {
+  value = "c-${yandex_mdb_postgresql_cluster.db.id}.rw.mdb.yandexcloud.net"
+}
+output "cluster_id" {
+  value = yandex_mdb_postgresql_cluster.db.id
 }

@@ -1,5 +1,0 @@
----
-mattermost_repo_setup_url: "https://deb.packages.mattermost.com/repo-setup.sh"
-mattermost_package_name: "mattermost"
-mattermost_config_path: "{{ mattermost_install_dir }}/config/config.json"
-mattermost_default_config_path: "{{ mattermost_install_dir }}/config/config.defaults.json"

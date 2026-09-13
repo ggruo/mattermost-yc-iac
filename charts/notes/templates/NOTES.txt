@@ -1,0 +1,4 @@
+Cloud Notes installed in {{ .Release.Namespace }}.
+Configuration is external: notes-config, notes-db, postgres-ca.
+Schema must be initialized by the separate notes-init Job before deployment.
+kubectl -n {{ .Release.Namespace }} rollout status deployment/notes

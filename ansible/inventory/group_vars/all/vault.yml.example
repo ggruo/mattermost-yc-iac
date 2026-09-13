@@ -1,2 +1,2 @@
----
-postgres_password: "replace-with-ansible-vault"
+# Copy to vault.yml, replace locally, then ansible-vault encrypt.
+postgres_password: REPLACE_WITH_THE_SAME_PASSWORD_AS_OPENTOFU

@@ -1,8 +1,8 @@
 ---
-- name: Configure Mattermost application host
-  hosts: mattermost
+- name: Configure the learning VM
+  hosts: all
   become: true
   roles:
     - common
-    - mattermost
+    - app
     - nginx

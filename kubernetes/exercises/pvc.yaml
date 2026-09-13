@@ -1,0 +1,30 @@
+# Separate demonstration: application notes remain in Managed PostgreSQL.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scratch
+  namespace: notes
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: yc-network-hdd
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scratch
+  namespace: notes
+spec:
+  containers:
+    - name: shell
+      image: busybox:1.37.0
+      command: [sh, -c, 'sleep 3600']
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: scratch

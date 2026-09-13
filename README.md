@@ -1,95 +1,46 @@
-# Mattermost on Yandex Cloud
+# Yandex Cloud: от виртуалки до Kubernetes
 
-Infrastructure as Code project for deploying Mattermost directly on Linux in Yandex Cloud.
+Практический курс: одно приложение Cloud Notes, приватный Managed PostgreSQL,
+два последовательных стенда. Первый — Linux/systemd/Nginx, второй — Managed
+Kubernetes, NLB и ALB. Ориентир: 10 занятий по 2–3 часа плюс создание ресурсов.
 
-The stack uses Terraform for cloud resources and Ansible for host configuration. It does not use Docker or Kubernetes.
+**Начните с [занятия 0](docs/labs/00-setup.md).** Не запускайте apply до расчёта
+стоимости. Цель — до 5 000 ₽ за курс; домен отдельно. Это не готовая смета и
+не автоматический лимит списаний. Все данные учебные, API не имеет авторизации.
 
-## Architecture
+| № | Занятие | Где особенно полезен UI |
+|---|---|---|
+| 0 | [Подготовка и расходы](docs/labs/00-setup.md) | Folder, Billing, квоты, DNS |
+| 1 | [IAM](docs/labs/01-iam.md) | Service accounts и роли |
+| 2 | [Сеть и VM вручную](docs/labs/02-vm.md) | Subnet, IP, security groups |
+| 3 | [Managed PostgreSQL](docs/labs/03-postgresql.md) | Подключение, метрики, backup |
+| 4 | [OpenTofu и state](docs/labs/04-iac.md) | Сверка кода и ресурсов, drift |
+| 5 | [Приложение на VM](docs/labs/05-app-vm.md) | DNS, далее Ansible/SSH |
+| 6 | [Образ и Registry](docs/labs/06-registry.md) | Образы и digest |
+| 7 | [Managed Kubernetes](docs/labs/07-kubernetes.md) | Master, node group, операции |
+| 8 | [NLB, ALB и HTTPS](docs/labs/08-exposure.md) | Listener, backend, сертификат |
+| 9 | [Helm и эксплуатация](docs/labs/09-operations.md) | Метрики, backup/restore |
 
-- Yandex VPC network and per-zone subnets.
-- Security groups with public HTTP/HTTPS, SSH only from trusted CIDRs, and PostgreSQL access only from the Mattermost VM security group.
-- One Ubuntu LTS VM with a static public IP.
-- Yandex Managed Service for PostgreSQL in production mode with two private hosts, automatic backups, and deletion protection.
-- Cloud DNS record pointing the Mattermost FQDN to the VM public IP.
-- Nginx reverse proxy with Let's Encrypt TLS.
-- Mattermost installed from the official Ubuntu package repository and managed by systemd.
+Нужны основы Linux/SSH, IP/портов и YAML. OpenTofu использует тот же HCL-подход,
+что Terraform; в курсе команды `tofu`. Подготовка инструментов — в занятии 0.
+Курс не требует сохранять прежнюю инсталляцию Mattermost; она доступна в истории Git.
+Не используйте старые state или inventory с новой конфигурацией.
 
-## Repository Layout
+## Устройство репозитория
 
-- `terraform/`: root Terraform configuration and local modules.
-- `terraform/modules/network/`: VPC, per-zone subnets, DNS zone.
-- `terraform/modules/security/`: VM and PostgreSQL security groups.
-- `terraform/modules/compute/`: static public IP and Mattermost VM.
-- `terraform/modules/postgresql/`: Managed PostgreSQL cluster, database, user.
-- `ansible/`: playbooks, generated inventory, variables, roles.
-- `docs/`: operating documentation.
+- `app/`: FastAPI, PostgreSQL, Dockerfile и тесты.
+- `terraform/vm/`, `terraform/kubernetes/`: отдельные корни и независимые state.
+- `terraform/modules/postgresql/`: небольшой общий модуль однохостовой БД.
+- `ansible/`: конфигурация VM, Vault, Nginx и systemd.
+- `kubernetes/`: обычные манифесты, публикация и упражнения.
+- `charts/notes/`: Helm chart того же приложения.
+- `docs/labs/`: учебный маршрут; `.local/`: ваши игнорируемые файлы.
 
-## Quick Start
+Прочитайте [архитектуру](docs/architecture.md), [безопасность](docs/security.md),
+[порядок очистки](docs/cleanup.md) и [локальные проверки](docs/validation.md).
+[Лист облачной приёмки](docs/acceptance.md) отделяет проверенный код от
+проверки настоящего облачного развёртывания. [Дальнейшие темы](docs/next.md).
 
-1. Configure Yandex Cloud credentials via environment variables:
-
-   ```bash
-   export YC_TOKEN="$(yc iam create-token --impersonate-service-account-id <service-account-id>)"
-   export YC_CLOUD_ID="$(yc config get cloud-id)"
-   export YC_FOLDER_ID="$(yc config get folder-id)"
-   export YC_SERVICE_ACCOUNT_KEY_FILE="$HOME/src/mattermost-yc-iac/.yc/key.json"
-   ```
-
-2. Create local Terraform variables outside Git:
-
-   ```bash
-   cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-   chmod 600 terraform/terraform.tfvars
-   ```
-
-3. Edit `terraform/terraform.tfvars`. Do not commit real secrets.
-
-4. Deploy infrastructure:
-
-   ```bash
-   cd terraform
-   terraform init
-   terraform fmt -check
-   terraform validate
-   terraform plan
-   terraform apply
-   terraform output -json > ../ansible/inventory/terraform-output.json
-   cd ..
-   ```
-
-5. Generate Ansible inventory:
-
-   ```bash
-   python3 ansible/generate_inventory.py \
-     ansible/inventory/terraform-output.json \
-     ansible/inventory/generated.yml
-   ```
-
-6. Create Ansible Vault file:
-
-   ```bash
-   cp ansible/group_vars/all/vault.yml.example ansible/group_vars/all/vault.yml
-   ansible-vault encrypt ansible/group_vars/all/vault.yml
-   ```
-
-7. Run Ansible:
-
-   ```bash
-   cd ansible
-   ansible-playbook playbooks/site.yml --ask-vault-pass
-   ```
-  or use
-   ```bash
-   ansible-playbook \
-     -i inventory/generated.yml \
-     playbooks/site.yml \
-     --private-key ~/.ssh/key_name \
-     --ask-vault-pass
-   ```
-
-
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [Operations](docs/operations.md)
-- [Security](docs/security.md)
+Каждое занятие заканчивается очисткой. Если следующий шаг делаете сразу,
+можно сохранить ресурсы на время этой сессии; продолжение после удаления
+всегда начинается с повторного развёртывания по ссылке в занятии.

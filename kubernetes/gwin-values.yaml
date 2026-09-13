@@ -1,0 +1,8 @@
+# These settings are checked against Gwin chart v1.10.0.
+controller:
+  debugLogs: false
+  # The lab references an existing YCCertificate ID, never creates certificates.
+  disableCertificatesListing: true
+nodecheck:
+  service:
+    nodePort: 30501

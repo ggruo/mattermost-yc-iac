@@ -1,0 +1,10 @@
+# Replace with cr.yandex/<registry>/notes@sha256:<digest> in local values.
+image: example.invalid/notes:1.0.0
+replicas: 1
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

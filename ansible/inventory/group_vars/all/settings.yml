@@ -1,0 +1,4 @@
+postgres_db: notes
+postgres_user: notes
+# Replace before running site.yml; this file contains no credentials.
+letsencrypt_email: replace@example.org

@@ -1,0 +1,21 @@
+[Unit]
+Description=Cloud Notes learning application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=notes
+Group=notes
+WorkingDirectory=/opt/notes
+EnvironmentFile=/etc/notes/database.env
+ExecStart=/opt/notes/venv/bin/uvicorn notes.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+[Install]
+WantedBy=multi-user.target

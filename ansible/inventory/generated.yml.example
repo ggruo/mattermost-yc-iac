@@ -1,12 +1,7 @@
----
 all:
-  children:
-    mattermost:
-      hosts:
-        mattermost-01:
-          ansible_host: 203.0.113.20
-          ansible_user: ubuntu
-          mattermost_fqdn: mattermost.example.com
-          postgres_host: rc1a-example.mdb.yandexcloud.net
-          postgres_db: mattermost
-          postgres_user: mattermost
+  hosts:
+    notes-vm:
+      ansible_host: 192.0.2.1
+      ansible_user: ubuntu
+      app_fqdn: vm.lab.example.org
+      postgres_host: c-example.rw.mdb.yandexcloud.net

@@ -1,60 +1,81 @@
 ---
 - name: Install Nginx and Certbot
   ansible.builtin.apt:
-    name: "{{ nginx_packages }}"
+    name: [nginx, certbot]
     state: present
-    update_cache: true
-    cache_valid_time: 3600
 
-- name: Install HTTP-only Nginx config for ACME bootstrap
+- name: Prepare ACME webroot
+  ansible.builtin.file:
+    path: /var/www/acme
+    state: directory
+    mode: '0755'
+
+- name: Check existing certificate
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ app_fqdn }}/fullchain.pem"
+  register: certificate
+
+- name: Install HTTP bootstrap only before first certificate
   ansible.builtin.template:
-    src: mattermost-http.conf.j2
-    dest: "{{ nginx_site_path }}"
-    owner: root
-    group: root
-    mode: "0644"
+    src: http.conf.j2
+    dest: /etc/nginx/sites-available/notes
+    mode: '0644'
+  when: not certificate.stat.exists
   notify: Reload nginx
 
-- name: Enable Mattermost Nginx site
+- name: Enable site
   ansible.builtin.file:
-    src: "{{ nginx_site_path }}"
-    dest: "{{ nginx_site_link }}"
+    src: /etc/nginx/sites-available/notes
+    dest: /etc/nginx/sites-enabled/notes
     state: link
   notify: Reload nginx
 
-- name: Disable default Nginx site
+- name: Remove default site
   ansible.builtin.file:
     path: /etc/nginx/sites-enabled/default
     state: absent
   notify: Reload nginx
 
-- name: Ensure Nginx is running for HTTP challenge
+- name: Start Nginx
   ansible.builtin.systemd:
     name: nginx
-    enabled: true
     state: started
+    enabled: true
 
-- name: Obtain or renew Let's Encrypt certificate
+- name: Apply HTTP configuration before requesting certificate
+  ansible.builtin.meta: flush_handlers
+
+- name: Obtain certificate through webroot without rewriting Nginx configuration
   ansible.builtin.command:
-    cmd: "certbot --nginx --non-interactive --agree-tos --email {{ letsencrypt_email }} -d {{ mattermost_fqdn }} --redirect"
-    creates: "/etc/letsencrypt/live/{{ mattermost_fqdn }}/fullchain.pem"
+    argv:
+      - certbot
+      - certonly
+      - --webroot
+      - -w
+      - /var/www/acme
+      - --non-interactive
+      - --agree-tos
+      - --email
+      - "{{ letsencrypt_email }}"
+      - -d
+      - "{{ app_fqdn }}"
+    creates: "/etc/letsencrypt/live/{{ app_fqdn }}/fullchain.pem"
 
-- name: Install final HTTPS Nginx config
+- name: Install HTTPS configuration
   ansible.builtin.template:
-    src: mattermost-https.conf.j2
-    dest: "{{ nginx_site_path }}"
-    owner: root
-    group: root
-    mode: "0644"
+    src: https.conf.j2
+    dest: /etc/nginx/sites-available/notes
+    mode: '0644'
   notify: Reload nginx
 
-- name: Validate Nginx configuration
-  ansible.builtin.command:
-    cmd: nginx -t
-  changed_when: false
+- name: Reload Nginx after certificate renewal
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
+    content: "#!/bin/sh\n/usr/sbin/nginx -t && /bin/systemctl reload nginx\n"
+    mode: '0755'
 
-- name: Ensure Nginx is enabled and started
+- name: Enable renewal timer
   ansible.builtin.systemd:
-    name: nginx
+    name: certbot.timer
     enabled: true
     state: started

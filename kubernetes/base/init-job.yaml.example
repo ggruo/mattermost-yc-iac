@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: notes-init
+  namespace: notes
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 120
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: schema
+          image: "${IMAGE}"
+          command: [python, -m, notes.db]
+          envFrom:
+            - configMapRef:
+                name: notes-config
+            - secretRef:
+                name: notes-db
+          volumeMounts:
+            - name: ca
+              mountPath: /etc/postgresql
+              readOnly: true
+      volumes:
+        - name: ca
+          configMap:
+            name: postgres-ca
