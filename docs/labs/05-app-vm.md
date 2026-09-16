@@ -77,6 +77,17 @@ Certbot использует webroot, renewal hook перезагружает Ng
 Проверьте `sudo ss -lntp`: приложение только 127.0.0.1:8000.
 Вопрос: почему restart приложения не должен удалять заметки?
 
+Если `/healthz` возвращает 200, а `/readyz` — 503, проверьте подключение к БД
+с теми же ограничениями systemd, что у `notes.service`. Ошибка
+`could not open certificate file "/home/notes/.postgresql/postgresql.crt": Permission denied`
+означает, что libpq ищет необязательный клиентский сертификат внутри закрытого
+через `ProtectHome=true` каталога. Шаблон `database.env.j2` задаёт
+`PGSSLCERT=/etc/notes/postgresql.crt`: этот файл не создаётся, поскольку используется
+парольная аутентификация. После обновления шаблона повторно примените Ansible;
+handler перезапустит сервис. Сохраните `ProtectHome=true`, `PGSSLMODE=verify-full`
+и `PGSSLROOTCERT=/etc/notes/ca.pem`: серверный CA и клиентский сертификат имеют
+разное назначение. Проверьте `/readyz` повторно — ожидается 200.
+
 ## Очистка и продолжение
 
 Выполните VM-раздел [очистки](../cleanup.md). Ansible не хранит пользовательские

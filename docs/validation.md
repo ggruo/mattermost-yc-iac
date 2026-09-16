@@ -13,6 +13,23 @@ tofu fmt -check -recursive terraform
 ```
 
 Provider lock-файлы находятся в обоих корнях. Не коммитьте `.terraform/`.
+Для контейнера и хоста в них должны быть контрольные суммы пакетов каждой
+используемой платформы. При добавлении платформы обновляйте lock-файлы явно,
+получая суммы из реестра провайдера (без `-upgrade`):
+
+```bash
+for root in terraform/vm terraform/kubernetes; do
+  tofu -chdir="$root" providers lock \
+    -platform=linux_arm64 -platform=linux_amd64 -platform=darwin_arm64
+done
+```
+
+Проверьте и закоммитьте оба `.terraform.lock.hcl`. Скрипт `.devcontainer/check.sh`
+намеренно использует `init -lockfile=readonly`: он проверяет зафиксированные суммы,
+а не меняет их. Если `init` сообщает `Provider lock file not updated`, а `validate`
+не принимает cached package, сначала выполните обновление выше; не удаляйте
+lock-файлы и не отключайте проверку контрольных сумм.
+
 Validate проверяет схему, а не квоты, доступность версий Kubernetes или IAM аккаунта.
 
 ```bash

@@ -5,6 +5,8 @@ provider "registry.opentofu.org/yandex-cloud/yandex" {
   version     = "0.127.0"
   constraints = "0.127.0"
   hashes = [
+    "h1:+JXzURzuTrJAGlaoLf/l6iTonqgH2dXxP3PMpy+z2Gk=",
+    "h1:VvMUZzXA2T+Fqwpb2X/VdHNW0cKa/5Q38AStHaLBEWI=",
     "h1:tms24VWADoryHdkGdH5A76fWG2k+9CrE9Je9yZMXUoI=",
     "zh:0791d3d9373d05b31501264ca0f64b6f60055ca39193fd165ad43b7c87c5c8d1",
     "zh:18465fc57492b8f50a126f6189198d79f08445b252242987d9b40be58ed1297a",

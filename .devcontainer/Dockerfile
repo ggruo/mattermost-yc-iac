@@ -6,7 +6,10 @@ ARG KUBECTL_VERSION=1.34.0
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The base image includes Yarn's apt source, which the labs do not use.
+# Remove it before apt update so an expired/missing Yarn key cannot block setup.
+RUN rm -f /etc/apt/sources.list.d/yarn.list /etc/apt/sources.list.d/yarn.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl unzip dnsutils jq gettext-base openssh-client \
     postgresql-client rsync \
     && rm -rf /var/lib/apt/lists/*
